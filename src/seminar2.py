@@ -13,6 +13,9 @@ def softmax(Z: np.array) -> np.array:
     :param Z: 2D array, shape (N, C)
     :return: softmax 2D array, shape (N, C)
     """
+    Z_1 = np.exp(Z)  # экспонента к каждому элементу
+    Z_2 = np.sum(Z_1, axis=-1, keepdims=True)  # сумма по оси
+    Z = Z_1 / Z_2
     return Z
 
 
@@ -30,15 +33,16 @@ def softmax_loss_and_grad(W: np.array, X: np.array, y: np.array, reg: float) -> 
     loss = 0.0
     dL_dW = np.zeros_like(W)
     # *****START OF YOUR CODE*****
-    # 1. Forward pass, compute loss as sum of data loss and regularization loss [sum(W ** 2)]
-
-    # 2. Backward pass, compute intermediate dL/dZ
-
-    # 3. Compute data gradient dL/dW
-
-    # 4. Compute regularization gradient
-
-    # 5. Return loss and sum of data + reg gradients
+    N = len(X)
+    z = X.dot(W)
+    softmax_probs = softmax(z)
+    loss = -np.log(softmax_probs[range(N), y]).mean()
+    loss += np.sum(W * W)
+    dL_dZ = softmax_probs.copy()
+    dL_dZ[range(N), y] -= 1
+    dL_dZ /= N
+    dL_dW = X.T.dot(dL_dZ)
+    dL_dW += (2 * W)
 
     # *****END OF YOUR CODE*****
 
@@ -88,7 +92,9 @@ class SoftmaxClassifier:
             # replacement is faster than sampling without replacement.              #
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+            batch_indices = np.random.choice(num_train, batch_size)
+            X_batch = X[batch_indices]
+            y_batch = y[batch_indices]
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
             # evaluate loss and gradient
@@ -101,6 +107,8 @@ class SoftmaxClassifier:
             # Update the weights using the gradient and the learning rate.          #
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+
+            self.W -= learning_rate * grad
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
             if it % 100 == 0:
@@ -133,10 +141,10 @@ def train():
     # weights images must look like in lecture slides
 
     # ***** START OF YOUR CODE *****
-    learning_rate = 0
-    reg = 0
-    num_iters = 0
-    batch_size = 0
+    learning_rate = 1e-3
+    reg = 1e-3
+    num_iters = 5000
+    batch_size = 32
     # ******* END OF YOUR CODE ************
 
     (x_train, y_train), (x_test, y_test) = get_preprocessed_data()
@@ -165,8 +173,8 @@ Test accuracy: {cls.evaluate(x_test, y_test)}
 
     print(report)
 
-    out_dir = 'output/seminar2'
-    report_path = os.path.join(out_dir, 'report.md')
+    out_dir = '../output/seminar2'
+    report_path = out_dir + '/report.md'
     with open(report_path, 'w') as f:
         f.write(report)
     visualize_weights(cls, out_dir)

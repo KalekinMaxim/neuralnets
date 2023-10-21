@@ -173,8 +173,8 @@ Test accuracy: {cls.evaluate(x_test, y_test)}
 
     print(report)
 
-    out_dir = '../output/seminar2'
-    report_path = out_dir + '/report.md'
+    out_dir = '..\\output\\seminar2'
+    report_path = os.path.join(out_dir, 'report.md')
     with open(report_path, 'w') as f:
         f.write(report)
     visualize_weights(cls, out_dir)

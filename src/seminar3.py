@@ -1,6 +1,10 @@
 """Seminar 3. Multilayer neural net"""
-import numpy as np
+import xmlrpc.client
 
+import numpy as np
+import os
+import datetime
+from test_utils import get_preprocessed_data, visualize_weights, visualize_loss
 
 class Param:
     """
@@ -48,13 +52,11 @@ class ReLULayer:
 
     def forward(self, X: np.array) -> np.array:
         """
-        TODO: Implement forward pass
-        Hint: you'll need to save some information about X
-        in the instance variable to use it later in the backward pass
         :param X: input data
         :return: Rectified Linear Unit
         """
-        raise Exception("Not implemented!")
+        self.mask = X > 0
+        return self.mask * X
 
     def backward(self, d_out: np.array) -> np.array:
         """
@@ -65,8 +67,7 @@ class ReLULayer:
         d_result: np array (batch_size, num_features) - gradient
           with respect to input
         """
-        # TODO: Implement backward pass
-        raise Exception("Not implemented!")
+        return self.mask*d_out
 
     def params(self) -> dict:
         # ReLU Doesn't have any parameters
@@ -80,9 +81,9 @@ class DenseLayer:
         self.X = None
 
     def forward(self, X):
-        # TODO: Implement forward pass
-        # Your implementation shouldn't have any loops
-        raise Exception("Not implemented!")
+        z = X @ self.W.value + self.B.value
+        self.X = X.copy()
+        return z
 
     def backward(self, d_out):
         """
@@ -106,7 +107,12 @@ class DenseLayer:
         # raise Exception("Not implemented!")
         # print('d_out shape is ', d_out.shape)
         # print('self.W shape is ', self.W.value.shape)
-        raise Exception("Not implemented!")
+        batch_size, N = d_out.shape
+        self.W.grad = self.X.T @ d_out
+        self.B.grad = np.ones((1, batch_size)) @ d_out
+        self.B.grad = d_out.sum(axis=0, keepdims=True)
+        dL_dX = d_out @ self.W.value.T
+        return dL_dX
 
     def params(self):
         return {'W': self.W, 'B': self.B}
@@ -142,12 +148,12 @@ class TwoLayerNet:
         """
         Z = X.copy()
 
-        # TODO forward passes through the all model`s layer
         # Set layer parameters gradient to zeros
         # After that compute loss and gradients
         for layer in self.layers:
+            Z = layer.forward(Z)
             for param in layer.params().values():
-                pass
+                param.grad = np.zeros_like(param.grad)
 
         self.loss, self.d_out = softmax_with_cross_entropy(Z, y)
         return Z
@@ -161,7 +167,9 @@ class TwoLayerNet:
         for layer in reversed(self.layers):
             tmp_d_out = layer.backward(tmp_d_out)
             for param in layer.params().values():
-                pass
+                reg_loss,reg_grad = l2_regularization(param.value,self.reg)
+                self.loss += reg_loss
+                param.grad += reg_grad
 
     def fit(self, X, y, learning_rate=1e-3, num_iters=10000,
             batch_size=4, verbose=True):
@@ -199,14 +207,69 @@ class TwoLayerNet:
             loss_history.append(self.loss)
 
             if it % 100 == 0 and verbose:
-                print(f'iteration {it} / {num_iters}: loss {self.loss:.3f} ')
+                print(f'iteration {it} / {num_iters}: loss {self.loss:.6f} ')
 
         return loss_history
 
+    def evaluate(self, X, y):
+        """
+        Use the trained weights of this linear classifier to predict labels for
+        data points and evaluate accuracy.
+        Inputs:
+        - X: A numpy array of shape (N, D) containing training data; there are N
+          training samples each of dimension D.
+        Returns:
+        - y_predicted: Predicted labels for the data in X. y_predicted is a 1-dimensional
+          array of length N, and each element is an integer giving the predicted
+          class.
+        """
+        z = self.forward(X, y)
+        y_predicted = np.argmax(z, axis=1)
+        accuracy = np.mean(y_predicted == y)
+        return accuracy
+
+
+def train():
+    n_input, n_output = 3073, 10
+    hidden = 300
+    learning_rate = 0.005
+    reg = 0
+    num_iters = 2000
+    batch_size = 128
+
+    (x_train, y_train), (x_test, y_test) = get_preprocessed_data(include_bias=True)
+    model = TwoLayerNet(n_input, n_output, hidden, reg)
+    t0 = datetime.datetime.now()
+    loss_history = model.fit(x_train, y_train, learning_rate, num_iters, batch_size, verbose=True)
+    t1 = datetime.datetime.now()
+    dt = t1 - t0
+
+    report = f"""# Training TwoLayer Net 
+datetime: {t1.isoformat(' ', 'seconds')}  
+Well done in: {dt.seconds} seconds  
+learning_rate = {learning_rate}  
+reg = {reg}  
+num_iters = {num_iters}  
+batch_size = {batch_size}  
+
+Final loss: {loss_history[-1]}   
+Train accuracy: {model.evaluate(x_train, y_train)}   
+Test accuracy: {model.evaluate(x_test, y_test)}  
+
+<img src="loss.png">
+    """
+
+    print(report)
+
+    out_dir = '..\\output\\seminar3'
+    report_path = os.path.join(out_dir, 'report.md', )
+    with open(report_path, 'w') as f:
+        f.write(report)
+    visualize_loss(loss_history, out_dir)
 
 if __name__ == '__main__':
     """1 point"""
     # Train your TwoLayer Net! 
     # Test accuracy must be > 0.33
     # Save report to output/seminar3
-    model = TwoLayerNet()
+    train()

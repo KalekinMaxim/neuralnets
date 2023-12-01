@@ -75,7 +75,7 @@ def make_model(input_shape, num_classes):
     else:
         units = num_classes
 
-    x = layers.Dropout(0.25)(x)
+    x = layers.Dropout(0.5)(x)
     # We specify activation=None so as to return logits
     outputs = layers.Dense(units, activation=None)(x)
     return keras.Model(inputs, outputs)
@@ -120,7 +120,7 @@ def train():
 
     print('Training model')
 
-    epochs = 8
+    epochs = 15
 
     model.compile(
         optimizer=keras.optimizers.Adam(1e-3),

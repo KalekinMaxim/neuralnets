@@ -76,8 +76,7 @@ def make_model(input_shape, num_classes):
         units = num_classes
 
     x = layers.Dropout(0.5)(x)
-    # We specify activation=None so as to return logits
-    outputs = layers.Dense(units, activation=None)(x)
+    outputs = layers.Dense(units, activation='sigmoid')(x)
     return keras.Model(inputs, outputs)
 
 def train():
@@ -89,7 +88,7 @@ def train():
         PATH_TO_DATA+'/PetImages',
         validation_split=0.2,
         subset="both",
-        seed=1336,
+        seed=1337,
         image_size=image_size,
         batch_size=batch_size,
     )
@@ -123,7 +122,7 @@ def train():
     epochs = 15
 
     model.compile(
-        optimizer=keras.optimizers.Adam(1e-3),
+        optimizer=keras.optimizers.Adam(2e-3),
         loss="binary_crossentropy",
         metrics=["accuracy"],
     )

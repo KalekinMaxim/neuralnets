@@ -89,7 +89,7 @@ def train():
         PATH_TO_DATA+'/PetImages',
         validation_split=0.2,
         subset="both",
-        seed=1337,
+        seed=1336,
         image_size=image_size,
         batch_size=batch_size,
     )
@@ -120,7 +120,7 @@ def train():
 
     print('Training model')
 
-    epochs = 5
+    epochs = 8
 
     model.compile(
         optimizer=keras.optimizers.Adam(1e-3),

@@ -9,13 +9,15 @@ import tensorflow as tf
 import boto3
 import dotenv
 
+from tensorflow import keras
+from tensorflow.keras import layers
+
 DATA_URL = 'https://storage.yandexcloud.net/fa-bucket/cats_dogs_train.zip'
 PATH_TO_DATA_ZIP = 'data/raw/cats_dogs_train.zip'
 PATH_TO_DATA = 'data/raw/cats_dogs_train'
 PATH_TO_MODEL = 'models/model_6'
 BUCKET_NAME = 'neuralnets2023'
-# todo fix your git user name and copy .env to project root
-YOUR_GIT_USER = 'labintsev'
+YOUR_GIT_USER = 'KalekinMaxim'
 
 
 def download_data():
@@ -35,15 +37,102 @@ def download_data():
 
 
 def make_model(input_shape, num_classes):
-    model = None
-    return model
+    inputs = keras.Input(shape=input_shape)
 
+    # Entry block
+    x = layers.Rescaling(1.0 / 255)(inputs)
+    x = layers.Conv2D(128, 3, strides=2, padding="same")(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Activation("relu")(x)
+
+    previous_block_activation = x  # Set aside residual
+
+    for size in [256, 512, 728]:
+        x = layers.Activation("relu")(x)
+        x = layers.SeparableConv2D(size, 3, padding="same")(x)
+        x = layers.BatchNormalization()(x)
+
+        x = layers.Activation("relu")(x)
+        x = layers.SeparableConv2D(size, 3, padding="same")(x)
+        x = layers.BatchNormalization()(x)
+
+        x = layers.MaxPooling2D(3, strides=2, padding="same")(x)
+
+        # Project residual
+        residual = layers.Conv2D(size, 1, strides=2, padding="same")(
+            previous_block_activation
+        )
+        x = layers.add([x, residual])  # Add back residual
+        previous_block_activation = x  # Set aside next residual
+
+    x = layers.SeparableConv2D(1024, 3, padding="same")(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Activation("relu")(x)
+
+    x = layers.GlobalAveragePooling2D()(x)
+    if num_classes == 2:
+        units = 1
+    else:
+        units = num_classes
+
+    x = layers.Dropout(0.25)(x)
+    # We specify activation=None so as to return logits
+    outputs = layers.Dense(units, activation=None)(x)
+    return keras.Model(inputs, outputs)
 
 def train():
     """Pipeline: Build, train and save model to models/model_6"""
+    image_size = (180, 180)
+    batch_size = 128
+
+    train_ds, val_ds = tf.keras.utils.image_dataset_from_directory(
+        PATH_TO_DATA+'/PetImages',
+        validation_split=0.2,
+        subset="both",
+        seed=1337,
+        image_size=image_size,
+        batch_size=batch_size,
+    )
+
+    data_augmentation = keras.Sequential(
+        [
+            layers.RandomFlip("horizontal"),
+            layers.RandomRotation(0.1),
+        ]
+    )
+
+    train_ds = train_ds.map(
+        lambda img, label: (data_augmentation(img), label),
+        num_parallel_calls=tf.data.AUTOTUNE,
+    )
+
+    # Prefetching samples in GPU memory helps maximize GPU utilization.
+    train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
+
+    val_ds = val_ds.prefetch(tf.data.AUTOTUNE)
+
     # Todo: Copy some code from seminar5 and https://keras.io/examples/vision/image_classification_from_scratch/
+    model = make_model(input_shape=image_size + (3,), num_classes=2)
+    model.compile(optimizer=tf.keras.optimizers.Adam(),
+                  loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                  metrics=[tf.keras.metrics.SparseCategoricalAccuracy()])
+
+
     print('Training model')
 
+    epochs = 5
+
+    model.compile(
+        optimizer=keras.optimizers.Adam(1e-3),
+        loss="binary_crossentropy",
+        metrics=["accuracy"],
+    )
+    model.fit(
+        train_ds,
+        epochs=epochs,
+        validation_data=val_ds,
+    )
+    model.save(PATH_TO_MODEL)
 
 def upload():
     """Pipeline: Upload model to S3 storage"""

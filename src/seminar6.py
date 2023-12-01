@@ -119,7 +119,7 @@ def train():
 
     print('Training model')
 
-    epochs = 15
+    epochs = 7
 
     model.compile(
         optimizer=keras.optimizers.Adam(2e-3),

@@ -64,6 +64,10 @@ def train():
     X_train, Y_train = load_data()
     tok = tf.keras.preprocessing.text.Tokenizer(num_words=MAX_WORDS)
     tok.fit_on_texts(X_train)
+    tok_string = tok.to_json()
+    with open("tok.json", "w") as f:
+        f.write(tok_string)
+
     sequences = tok.texts_to_sequences(X_train)
     sequences_matrix = tf.keras.preprocessing.sequence.pad_sequences(sequences, maxlen=MAX_SEQ_LEN)
 
@@ -82,9 +86,9 @@ def validate(model_path='models/model_7') -> tuple:
     """
     model = tf.keras.models.load_model(model_path)
     X_test, Y_test = load_data('data/raw/spam_test.csv')
-    X_train, _ = load_data('data/raw/spam.csv')
-    tok = tf.keras.preprocessing.text.Tokenizer(num_words=MAX_WORDS)
-    tok.fit_on_texts(X_train)
+    with open('tok.json', 'r') as f:
+        json_string = f.read()
+    tok = tf.keras.preprocessing.text.tokenizer_from_json(json_string)
     test_sequences = tok.texts_to_sequences(X_test)
     test_sequences_matrix = tf.keras.preprocessing.sequence.pad_sequences(test_sequences, maxlen=MAX_SEQ_LEN)
 
